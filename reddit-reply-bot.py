@@ -151,6 +151,7 @@ def main():
                     item.reply(comment)
                 else:
                     print(r.status_code)
+                time.sleep(1)
                     
         bot.inbox.mark_read(unreads)
 
