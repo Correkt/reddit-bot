@@ -148,6 +148,21 @@ def main():
                             comment += str(i+1) + ") There is a low chance this is AI generated." + "\n"
                         else:
                             comment += str(i+1) + data["error"] + "\n"
+                    comment += "We are currently in alpha testing. Join our Discord server to learn more! [https://discord.gg/Hj9ffKm9ny]"
+                    item.reply(comment)
+                elif r.status_code == 400:
+                    time.sleep(20)
+                    paste = r.json()
+                    comment = ""
+                    for i, src in enumerate(gallery):
+                        data = paste[src]
+                        if data["ai_probability"] >= 50:
+                            comment += str(i+1) + ") There's a " + str(data["ai_probability"]) + "% chance this is AI generated." +  "\n"
+                        elif data["ai_probability"] < 50:
+                            comment += str(i+1) + ") There is a low chance this is AI generated." + "\n"
+                        else:
+                            comment += str(i+1) + data["error"] + "\n"
+                    comment += "We are currently in alpha testing. Join our Discord server to learn more! [https://discord.gg/Hj9ffKm9ny]"
                     item.reply(comment)
                 else:
                     print(r.status_code)
