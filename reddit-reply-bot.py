@@ -13,14 +13,7 @@ bot = praw.Reddit(
 
 IMAGE_ENDPOINT = "https://correkt.ai/image"
 API_KEY = os.environ["CORREKT_API_KEY"]
-# subreddit = bot.subreddit('all')
-# comments = subreddit.stream.comments()
 
-# while True:
-#     for comment in comments:
-#         text = comment.body
-#         if 'u/CorrektOfficial' in text.lower():
-#             comment.reply('hello')
 
 
 def getImages(submission):
@@ -122,13 +115,14 @@ def getImages(submission):
 def main():
     while True:
         unreads = list(bot.inbox.unread(limit=None))
+        print(unreads)
 
         for item in unreads:
             print("1")
-            if "u/correktbot" in item.body.lower():
+            if "u/correktbot" in item.body.lower() and "art" in item.body.lower():
                 #print(item.submission.title)
                 #print(item.submission.url)
-                print("hi")
+                print("2")
 
                 submission = item.submission
                 gallery = getImages(submission)
@@ -152,21 +146,93 @@ def main():
                     item.reply(comment)
                 elif r.status_code == 400:
                     time.sleep(20)
-                    paste = r.json()
-                    comment = ""
-                    for i, src in enumerate(gallery):
-                        data = paste[src]
-                        if data["ai_probability"] >= 50:
-                            comment += str(i+1) + ") There's a " + str(data["ai_probability"]) + "% chance this is AI generated." +  "\n"
-                        elif data["ai_probability"] < 50:
-                            comment += str(i+1) + ") There is a low chance this is AI generated." + "\n"
-                        else:
-                            comment += str(i+1) + data["error"] + "\n"
-                    comment += "We are currently in alpha testing. Join our Discord server to learn more! [https://discord.gg/Hj9ffKm9ny]"
-                    item.reply(comment)
+                    data = {"srcs": gallery, "api_key": API_KEY}
+                    r = requests.post(url=IMAGE_ENDPOINT, json=data)
+                    if r.status_code == 200:
+                        paste = r.json()
+                        comment = ""
+                        for i, src in enumerate(gallery):
+                            data = paste[src]
+                            if data["ai_probability"] >= 50:
+                                comment += str(i+1) + ") There's a " + str(data["ai_probability"]) + "% chance this is AI generated." +  "\n"
+                            elif data["ai_probability"] < 50:
+                                comment += str(i+1) + ") There is a low chance this is AI generated." + "\n"
+                            else:
+                                comment += str(i+1) + data["error"] + "\n"
+                        comment += "\nWe are currently in alpha testing. Join our Discord server to learn more! [https://discord.gg/Hj9ffKm9ny]"
+                        item.reply(comment)
+                    else:
+                        print(r.status_code)
                 else:
                     print(r.status_code)
                 time.sleep(1)
+
+
+            if "u/correktbot" in item.body.lower() and "misinfo" in item.body.lower():
+        
+                
+                parent = item.parent()
+                if isinstance(parent, praw.models.Submission):
+                    parent_text = item.submission.title
+                    parent_text += " " + item.submission.selftext
+                elif isinstance(parent, praw.models.Comment):
+                    parent_text = parent.body
+                else: parent_text = None
+
+                print(parent_text)
+
+                success = False
+                while not success:
+                    info = {"api_key": API_KEY, "sentences": [parent_text], "parentText": None}
+                    r = requests.post(url="https://correkt.ai/validfactcheck", json=info)
+                    data = r.json()
+                    if r.status_code == 200:
+                        comment = ""
+                        print(data)
+                        print(data["checkable"])
+                        if (data['checkable'] == True):
+                            r = requests.post(url="https://correkt.ai/data", json=info)
+                            data = r.json()
+                            if r.status_code == 200:
+                                if (data['checkable'] == False):
+                                    #could not extract any claims to be fact checked
+                                    print(1)
+                                    comment += "The text provided could not be fact checked."
+                                    item.reply(comment)
+                                elif (data['result'] == "unfounded" or data['result'] == "untrue"):
+                                    # do something with data["urls"] and data["explanation"]
+                                    print(2)
+                                    comment += data["explanation"] + " \n " + data["urls"][0] + data["urls"][1]
+                                    item.reply(comment)
+                                else:
+                                    #text does not contain misinfo
+                                    print(3)
+                                    comment += "The text provided does not contain misinformation."
+                                    item.reply(comment)
+                                success = True
+                            else:
+                                #api call failed, sleep 20 seconds and try this whole process again
+                                print(4)
+                        else:
+                            # text is not fact checkable
+                            print(5)
+                            comment += "The text provided could not be fact checked."
+                            item.reply(comment)
+                            success = True
+                    else: 
+                        # api call failed, sleep 20 secondsdd and try this whole process again
+                        print(6)
+                    if not success:
+                        print("failed")
+                        time.sleep(20)
+                
+
+                
+
+
+
+
+
                     
         bot.inbox.mark_read(unreads)
 
